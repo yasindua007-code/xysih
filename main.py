@@ -33,7 +33,7 @@ except Exception as error:
     st.error(f"Could not initialize Groq: {error}")
     st.stop()
 
-MODEL = "openai/gpt-oss-120b"
+MODEL = "openai/gpt-oss-20b"
 
 
 def extract_pdf_text(pdf_file):
