@@ -1,12 +1,7 @@
 
-import os
 import streamlit as st
 from pypdf import PdfReader
 from groq import Groq
-from dotenv import load_dotenv
-
-# Load API key from the .env file
-load_dotenv()
 
 # Configure Streamlit page
 st.set_page_config(
@@ -21,14 +16,13 @@ st.write(
     "a clear and easy-to-understand summary."
 )
 
-# Read API key
-api_key = os.getenv("GROQ_KEY")
-
-# Check API key
-if not api_key:
+# Read API key from Streamlit secrets
+try:
+    api_key = st.secrets["GROQ_KEY"]
+except (KeyError, FileNotFoundError):
     st.error(
-        "API key not found! Please add GROQ_API_KEY "
-        "to your .env file in the project folder."
+        "API key not found! Add GROQ_API_KEY "
+        "to .streamlit/secrets.toml."
     )
     st.stop()
 
@@ -39,7 +33,6 @@ except Exception as error:
     st.error(f"Could not initialize Groq: {error}")
     st.stop()
 
-# Model name
 MODEL = "openai/gpt-oss-120b"
 
 
@@ -88,7 +81,7 @@ def summarize_text(text, instructions):
 
 
 def summarize_pdf(pdf_text):
-    """Summarize PDF sections and combine their summaries."""
+    """Summarize PDF sections and combine summaries."""
     chunks = split_text(pdf_text)
     summaries = []
 
@@ -99,8 +92,8 @@ def summarize_pdf(pdf_text):
             section_summary = summarize_text(
                 chunk,
                 "Summarize this PDF section accurately. "
-                "Include the main ideas, important facts, "
-                "key findings, names, numbers, and conclusions. "
+                "Include main ideas, important facts, key findings, "
+                "names, numbers, and conclusions. "
                 "Do not invent information."
             )
 
@@ -108,18 +101,15 @@ def summarize_pdf(pdf_text):
 
             progress.progress(
                 (index + 1) / len(chunks),
-                text=f"Summarizing section {index + 1} of "
-                     f"{len(chunks)}"
+                text=f"Summarizing section {index + 1} "
+                     f"of {len(chunks)}"
             )
-
     finally:
         progress.empty()
 
-    # Return directly if the PDF has only one section
     if len(summaries) == 1:
         return summaries[0]
 
-    # Combine section summaries
     combined_summaries = "\n\n".join(summaries)
 
     return summarize_text(
@@ -131,7 +121,7 @@ def summarize_pdf(pdf_text):
     )
 
 
-# Upload PDF
+# PDF uploader
 uploaded_file = st.file_uploader(
     "Choose a PDF file",
     type=["pdf"]
@@ -141,7 +131,6 @@ if uploaded_file is not None:
     st.success(f"Uploaded: {uploaded_file.name}")
 
     if st.button("✨ Summarize PDF", type="primary"):
-
         try:
             with st.spinner("Extracting PDF text..."):
                 pdf_text = extract_pdf_text(uploaded_file)
@@ -149,17 +138,14 @@ if uploaded_file is not None:
             if not pdf_text.strip():
                 st.warning(
                     "No readable text was found in this PDF. "
-                    "If it is a scanned document, OCR is required."
+                    "Scanned PDFs require OCR."
                 )
-
             else:
                 st.info(
                     f"Extracted {len(pdf_text):,} characters."
                 )
 
-                with st.spinner(
-                    "Groq AI is preparing your summary..."
-                ):
+                with st.spinner("Groq AI is preparing your summary..."):
                     summary = summarize_pdf(pdf_text)
 
                 st.subheader("📝 Your PDF Summary")
@@ -173,10 +159,8 @@ if uploaded_file is not None:
                 )
 
         except Exception as error:
-            st.error(
-                f"Something went wrong: {error}"
-            )
+            st.error(f"Something went wrong: {error}")
             st.caption(
                 "Check your API key, internet connection, "
-                "Groq model availability, and API usage limits."
+                "model availability, and API usage limits."
             )
